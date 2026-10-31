@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FrictionFlow Dashboard</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 1rem;
+    }
+    h1 { margin: 0; color: #3b82f6; font-size: 1.8rem; }
+    .badge {
+      background: #22c55e;
+      color: #0f172a;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .card {
+      background: #1e293b;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1.5rem;
+    }
+    h2 { margin-top: 0; font-size: 1.25rem; color: #e2e8f0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+      font-size: 0.95rem;
+    }
+    th { color: #94a3b8; font-weight: 600; }
+    td { color: #cbd5e1; }
+    .refresh-btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .refresh-btn:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🛡️ FrictionFlow Analytics</h1>
+      <span class="badge">Live & Connected</span>
+    </header>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Recent Bypass Activity Logs</h2>
+        <button class="refresh-btn" onclick="fetchLogs()">Refresh Logs</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Domain</th>
+            <th>Action</th>
+            <th>Wait Duration</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody">
+          <tr><td colspan="5" style="text-align: center; color: #94a3b8;">Loading logs...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/analytics');
+        const data = await res.json();
+        const tbody = document.getElementById('logTableBody');
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8;">No activity logged yet. Try bypassing a site with your extension!</td></tr>';
+          return;
+        }
+
+        data.forEach(log => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>#${log.id}</td>
+            <td><strong>${log.domain}</strong></td>
+            <td><span style="color: #38bdf8;">${log.action}</span></td>
+            <td>${log.duration}s</td>
+            <td>${new Date(log.timestamp).toLocaleString()}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Failed to fetch analytics:', err);
+      }
+    }
+
+    // Load logs on page open
+    fetchLogs();
+  </script>
+</body>
+</html>
