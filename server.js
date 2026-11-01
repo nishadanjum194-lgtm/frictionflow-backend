@@ -5,6 +5,9 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
+});
 app.use(cors());
 
 // Serve static dashboard files from a 'public' folder
