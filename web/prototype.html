@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FrictionFlow - Mindful Habit & Friction Designer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#151c2c',
+                            900: '#0f172a',
+                            950: '#090d16',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.12); opacity: 1; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 4s infinite ease-in-out;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-violet-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <i data-lucide="shield-alert" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">FrictionFlow</h1>
+                <p class="text-xs text-slate-400">Behavioral Habit Architecture</p>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="hidden md:flex items-center space-x-1 bg-slate-950/60 p-1.5 rounded-xl border border-slate-800">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                <span>Dashboard</span>
+            </button>
+            <button onclick="switchTab('sites')" id="nav-sites" class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i data-lucide="globe" class="w-4 h-4"></i>
+                <span>Friction Sites</span>
+            </button>
+            <button onclick="switchTab('simulator')" id="nav-simulator" class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i data-lucide="play-circle" class="w-4 h-4"></i>
+                <span>The Friction Wall</span>
+            </button>
+            <button onclick="switchTab('log')" id="nav-log" class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i data-lucide="activity" class="w-4 h-4"></i>
+                <span>Habit Log & Stats</span>
+            </button>
+        </nav>
+
+        <!-- Right Header Actions -->
+        <div class="flex items-center space-x-3">
+            <div id="active-pass-badge" class="hidden items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full text-xs text-emerald-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span id="pass-timer-text">Focus Pass Active (15m)</span>
+            </div>
+            <button onclick="openAddSiteModal()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-lg shadow-emerald-600/20 flex items-center space-x-2 transition-all transform active:scale-95">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Add Friction Site</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Nav Bar (Bottom) -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 z-30 flex justify-around p-3">
+        <button onclick="switchTab('dashboard')" id="mob-dashboard" class="flex flex-col items-center text-emerald-400 text-xs font-medium space-y-1">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            <span>Dashboard</span>
+        </button>
+        <button onclick="switchTab('sites')" id="mob-sites" class="flex flex-col items-center text-slate-400 text-xs font-medium space-y-1">
+            <i data-lucide="globe" class="w-5 h-5"></i>
+            <span>Sites</span>
+        </button>
+        <button onclick="switchTab('simulator')" id="mob-simulator" class="flex flex-col items-center text-slate-400 text-xs font-medium space-y-1">
+            <i data-lucide="play-circle" class="w-5 h-5"></i>
+            <span>Wall</span>
+        </button>
+        <button onclick="switchTab('log')" id="mob-log" class="flex flex-col items-center text-slate-400 text-xs font-medium space-y-1">
+            <i data-lucide="activity" class="w-5 h-5"></i>
+            <span>Log</span>
+        </button>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 pb-24 md:pb-8">
+
+        <!-- ================= DASHBOARD TAB ================= -->
+        <section id="tab-dashboard" class="space-y-6">
+            <!-- Welcome Banner -->
+            <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 p-6 lg:p-8">
+                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute right-40 -top-10 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="relative z-10 max-w-2xl">
+                    <div class="inline-flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-medium text-emerald-400 mb-4">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                        <span>Mindful Digital Well-being</span>
+                    </div>
+                    <h2 class="text-2xl lg:text-3xl font-bold tracking-tight text-white mb-2">Build intentional habits through strategic friction.</h2>
+                    <p class="text-slate-400 text-sm lg:text-base mb-6">Every time you open an unproductive site, FrictionFlow inserts a mindful challenge to break automatic doomscrolling loops.</p>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="switchTab('simulator')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 flex items-center space-x-2 text-sm transition-all">
+                            <i data-lucide="play" class="w-4 h-4"></i>
+                            <span>Test Friction Wall Live</span>
+                        </button>
+                        <button onclick="switchTab('sites')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-2.5 rounded-xl border border-slate-700 flex items-center space-x-2 text-sm transition-all">
+                            <i data-lucide="settings" class="w-4 h-4"></i>
+                            <span>Configure Sites</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 flex items-center justify-between shadow-xl">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 mb-1">Total Interventions</p>
+                        <h3 id="stat-interventions" class="text-3xl font-bold text-white">42</h3>
+                        <p class="text-xs text-emerald-400 mt-1 flex items-center"><i data-lucide="trending-up" class="w-3 h-3 mr-1"></i> +12% this week</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                        <i data-lucide="shield" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 flex items-center justify-between shadow-xl">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 mb-1">Time Saved</p>
+                        <h3 id="stat-timesaved" class="text-3xl font-bold text-white">3.5 hrs</h3>
+                        <p class="text-xs text-emerald-400 mt-1 flex items-center"><i data-lucide="clock" class="w-3 h-3 mr-1"></i> Mindful moments</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <i data-lucide="hourglass" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 flex items-center justify-between shadow-xl">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 mb-1">Challenges Completed</p>
+                        <h3 id="stat-challenges" class="text-3xl font-bold text-white">35</h3>
+                        <p class="text-xs text-emerald-400 mt-1 flex items-center"><i data-lucide="check-circle-2" class="w-3 h-3 mr-1"></i> Goal oriented</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                        <i data-lucide="award" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 flex items-center justify-between shadow-xl">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 mb-1">Habit Resistance Rate</p>
+                        <h3 id="stat-resistance" class="text-3xl font-bold text-white">83%</h3>
+                        <p class="text-xs text-emerald-400 mt-1 flex items-center"><i data-lucide="zap" class="w-3 h-3 mr-1"></i> High mindfulness</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                        <i data-lucide="activity" class="w-6 h-6"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Launch Friction Wall & Active Sites -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Managed Sites Quick List -->
+                <div class="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-lg text-white flex items-center space-x-2">
+                            <i data-lucide="globe" class="w-5 h-5 text-emerald-400"></i>
+                            <span>Active Friction Sites</span>
+                        </h3>
+                        <button onclick="switchTab('sites')" class="text-xs text-emerald-400 hover:underline">Manage All</button>
+                    </div>
+                    <div id="dashboard-sites-list" class="space-y-3">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Friction Challenge Types Summary -->
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-lg text-white mb-4 flex items-center space-x-2">
+                            <i data-lucide="layers" class="w-5 h-5 text-violet-400"></i>
+                            <span>Friction Tiers</span>
+                        </h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                                <div class="flex justify-between font-semibold text-emerald-400 mb-1">
+                                    <span>Easy Friction</span>
+                                    <span>1 Step</span>
+                                </div>
+                                <p class="text-xs text-slate-400">Intention Check-in & 15s breathing pause.</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                                <div class="flex justify-between font-semibold text-amber-400 mb-1">
+                                    <span>Medium Friction</span>
+                                    <span>2 Steps</span>
+                                </div>
+                                <p class="text-xs text-slate-400">Intention + Math Gauntlet (2 questions).</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-rose-500/5 border border-rose-500/20">
+                                <div class="flex justify-between font-semibold text-rose-400 mb-1">
+                                    <span>Hard Friction</span>
+                                    <span>4 Steps</span>
+                                </div>
+                                <p class="text-xs text-slate-400">Intention, Breathing, Math, & Mindful Typing.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-800 text-center">
+                        <button onclick="switchTab('simulator')" class="w-full bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center justify-center space-x-2">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i>
+                            <span>Launch Friction Simulator</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SITES & RULES TAB ================= -->
+        <section id="tab-sites" class="space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Managed Friction Sites</h2>
+                    <p class="text-sm text-slate-400">Configure which websites trigger the Friction Wall and assign challenge difficulty.</p>
+                </div>
+                <button onclick="openAddSiteModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 flex items-center space-x-2 text-sm transition-all">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Add New Site</span>
+                </button>
+            </div>
+
+            <!-- Sites Table / Grid -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-900/90 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                <th class="p-4">Website / Domain</th>
+                                <th class="p-4">Category</th>
+                                <th class="p-4">Friction Level</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sites-table-body" class="divide-y divide-slate-800/60 text-sm">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SIMULATOR / FRICTION WALL TAB ================= -->
+        <section id="tab-simulator" class="space-y-6 hidden">
+            <div class="text-center max-w-2xl mx-auto space-y-2">
+                <div class="inline-flex items-center space-x-2 bg-violet-500/10 border border-violet-500/20 px-3 py-1 rounded-full text-xs font-medium text-violet-400">
+                    <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                    <span>Interactive Gateway</span>
+                </div>
+                <h2 class="text-2xl lg:text-3xl font-bold text-white">The Friction Wall Simulator</h2>
+                <p class="text-sm text-slate-400">Select any managed site below to experience how FrictionFlow intercepts mindless browsing and prompts mindful intent.</p>
+            </div>
+
+            <!-- Simulator Site Picker Cards -->
+            <div id="simulator-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- ================= HABIT LOG & STATS TAB ================= -->
+        <section id="tab-log" class="space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Intervention Log & Insights</h2>
+                    <p class="text-sm text-slate-400">Review your past friction challenges, success rates, and behavioral patterns.</p>
+                </div>
+                <button onclick="clearHistory()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-medium px-4 py-2 rounded-xl text-sm transition-all flex items-center space-x-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Clear History</span>
+                </button>
+            </div>
+
+            <!-- History Table -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-900/90 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                <th class="p-4">Timestamp</th>
+                                <th class="p-4">Target Website</th>
+                                <th class="p-4">Challenge Tier</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4">Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-800/60 text-sm">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= ADD / EDIT SITE MODAL ================= -->
+    <div id="site-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modal-title" class="text-lg font-bold text-white">Add Friction Site</h3>
+                <button onclick="closeAddSiteModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="site-form" onsubmit="handleSaveSite(event)" class="space-y-4">
+                <input type="hidden" id="site-edit-id">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Website Domain</label>
+                    <input type="text" id="site-domain" required placeholder="e.g. twitter.com or youtube.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Site Name</label>
+                    <input type="text" id="site-name" required placeholder="e.g. X / Twitter" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Category</label>
+                    <select id="site-category" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                        <option value="Social Media">Social Media</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="News / Forums">News / Forums</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Friction Level</label>
+                    <select id="site-level" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                        <option value="Easy">Easy (1 Step)</option>
+                        <option value="Medium">Medium (2 Steps)</option>
+                        <option value="Hard">Hard (4 Steps)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeAddSiteModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25">Save Site</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= THE FRICTION WALL CHALLENGE MODAL ================= -->
+    <div id="friction-wall-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 lg:p-8 shadow-2xl relative overflow-hidden flex flex-col min-h-[500px]">
+            <!-- Top Header in Modal -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-base">Friction Wall Intercept</h3>
+                        <p id="wall-site-subtitle" class="text-xs text-slate-400">Attempting to access youtube.com</p>
+                    </div>
+                </div>
+                <button onclick="abandonChallenge()" class="text-slate-400 hover:text-rose-400 p-2 rounded-xl hover:bg-slate-800 text-xs flex items-center space-x-1">
+                    <i data-lucide="x-circle" class="w-4 h-4"></i>
+                    <span>Give Up</span>
+                </button>
+            </div>
+
+            <!-- Progress Indicator -->
+            <div class="py-4">
+                <div class="flex justify-between text-xs text-slate-400 mb-2">
+                    <span id="step-indicator-text">Step 1 of 4: Intention Check-in</span>
+                    <span id="step-progress-percent">25%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="step-progress-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 25%"></div>
+                </div>
+            </div>
+
+            <!-- Challenge Steps Container -->
+            <div id="challenge-content-container" class="flex-1 flex flex-col justify-center py-4">
+                <!-- Dynamically injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- App State ---
+        let state = {
+            sites: JSON.parse(localStorage.getItem('ff_sites')) || [],
+            history: JSON.parse(localStorage.getItem('ff_history')) || [],
+            stats: JSON.parse(localStorage.getItem('ff_stats')) || {
+                totalInterventions: 0,
+                timeSavedMinutes: 0,
+                challengesCompleted: 0,
+                resistanceRate: 0
+            }
+        };
+
+        // Active Challenge Session State
+        let currentChallengeSession = {
+            site: null,
+            level: 'Medium',
+            stepsTotal: 2,
+            currentStepIndex: 0,
+            startTime: null,
+            timerInterval: null,
+            mathData: { q1: {}, q2: {} },
+            intention: '',
+            timeCommitment: '15'
+        };
+
+        let focusPassTimerInterval = null;
+        let activeFocusPassSecondsLeft = 0;
+
+        // Initialize App on Load
+        window.onload = function() {
+            lucide.createIcons();
+            renderAll();
+        };
+
+        function saveToStorage() {
+            localStorage.setItem('ff_sites', JSON.stringify(state.sites));
+            localStorage.setItem('ff_history', JSON.stringify(state.history));
+            localStorage.setItem('ff_stats', JSON.stringify(state.stats));
+        }
+
+        // --- Tab Switching ---
+        function switchTab(tabName) {
+            const tabs = ['dashboard', 'sites', 'simulator', 'log'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                const navEl = document.getElementById(`nav-${t}`);
+                const mobEl = document.getElementById(`mob-${t}`);
+                
+                if (t === tabName) {
+                    el.classList.remove('hidden');
+                    if(navEl) {
+                        navEl.className = "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                    }
+                    if(mobEl) {
+                        mobEl.className = "flex flex-col items-center text-emerald-400 text-xs font-medium space-y-1";
+                    }
+                } else {
+                    el.classList.add('hidden');
+                    if(navEl) {
+                        navEl.className = "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50";
+                    }
+                    if(mobEl) {
+                        mobEl.className = "flex flex-col items-center text-slate-400 text-xs font-medium space-y-1";
+                    }
+                }
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- Render All Views ---
+        function renderAll() {
+            renderDashboardStats();
+            renderDashboardSites();
+            renderSitesTable();
+            renderSimulatorGrid();
+            renderHistoryTable();
+            lucide.createIcons();
+        }
+
+        function renderDashboardStats() {
+            document.getElementById('stat-interventions').innerText = state.stats.totalInterventions;
+            const hours = (state.stats.timeSavedMinutes / 60).toFixed(1);
+            document.getElementById('stat-timesaved').innerText = hours + ' hrs';
+            document.getElementById('stat-challenges').innerText = state.stats.challengesCompleted;
+            document.getElementById('stat-resistance').innerText = state.stats.resistanceRate + '%';
+        }
+
+        function renderDashboardSites() {
+            const container = document.getElementById('dashboard-sites-list');
+            if (state.sites.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-500 py-4 text-center">No sites added yet. Add a site to start building friction.</p>`;
+                return;
+            }
+            container.innerHTML = state.sites.slice(0, 4).map(site => `
+                <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                            ${site.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-white text-sm">${site.name}</h4>
+                            <p class="text-xs text-slate-400">${site.domain} • <span class="text-emerald-400">${site.level} Friction</span></p>
+                        </div>
+                    </div>
+                    <button onclick="launchFrictionWall('${site.domain}')" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1">
+                        <i data-lucide="play" class="w-3 h-3"></i>
+                        <span>Test Wall</span>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderSitesTable() {
+            const tbody = document.getElementById('sites-table-body');
+            if (state.sites.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">No sites configured. Click 'Add New Site' above.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = state.sites.map(site => `
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="p-4 font-medium text-white flex items-center space-x-2">
+                        <i data-lucide="globe" class="w-4 h-4 text-slate-400"></i>
+                        <span>${site.domain}</span>
+                    </td>
+                    <td class="p-4 text-slate-300">${site.category}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold 
+                            ${site.level === 'Easy' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
+                              site.level === 'Medium' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 
+                              'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                            ${site.level}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <span class="inline-flex items-center text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span> Active
+                        </span>
+                    </td>
+                    <td class="p-4 text-right space-x-2">
+                        <button onclick="editSite(${site.id})" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" title="Edit">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="deleteSite(${site.id})" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors" title="Delete">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderSimulatorGrid() {
+            const grid = document.getElementById('simulator-grid');
+            if (state.sites.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500">No websites available for simulation. Please add sites first.</div>`;
+                return;
+            }
+            grid.innerHTML = state.sites.map(site => `
+                <div onclick="launchFrictionWall('${site.domain}')" class="bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 cursor-pointer transition-all transform hover:-translate-y-1 group shadow-xl">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg mb-4 group-hover:scale-110 transition-transform">
+                        ${site.name.charAt(0)}
+                    </div>
+                    <h4 class="font-bold text-white text-base mb-1">${site.name}</h4>
+                    <p class="text-xs text-slate-400 mb-4">${site.domain}</p>
+                    <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+                        <span class="text-xs font-medium text-emerald-400">${site.level} Friction</span>
+                        <span class="text-xs text-slate-300 flex items-center group-hover:text-emerald-400 font-medium">Launch <i data-lucide="chevron-right" class="w-3.5 h-3.5 ml-1"></i></span>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            if (state.history.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">No intervention history recorded yet.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = state.history.map(item => {
+                const dateObj = new Date(item.timestamp);
+                const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                return `
+                    <tr class="hover:bg-slate-800/30 transition-colors">
+                        <td class="p-4 text-slate-300 text-xs">${timeStr}</td>
+                        <td class="p-4 font-medium text-white">${item.site}</td>
+                        <td class="p-4 text-slate-300 text-xs">${item.challengeType}</td>
+                        <td class="p-4">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${item.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                                ${item.status}
+                            </span>
+                        </td>
+                        <td class="p-4 text-slate-400 text-xs">${item.duration}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- Site Management Modals & Handlers ---
+        function openAddSiteModal() {
+            document.getElementById('site-edit-id').value = '';
+            document.getElementById('site-form').reset();
+            document.getElementById('modal-title').innerText = 'Add Friction Site';
+            document.getElementById('site-modal').classList.remove('hidden');
+        }
+
+        function closeAddSiteModal() {
+            document.getElementById('site-modal').classList.add('hidden');
+        }
+
+        function editSite(id) {
+            const site = state.sites.find(s => s.id === id);
+            if(!site) return;
+            document.getElementById('site-edit-id').value = site.id;
+            document.getElementById('site-domain').value = site.domain;
+            document.getElementById('site-name').value = site.name;
+            document.getElementById('site-category').value = site.category;
+            document.getElementById('site-level').value = site.level;
+            document.getElementById('modal-title').innerText = 'Edit Friction Site';
+            document.getElementById('site-modal').classList.remove('hidden');
+        }
+
+        function deleteSite(id) {
+            state.sites = state.sites.filter(s => s.id !== id);
+            saveToStorage();
+            renderAll();
+            showToast('Site removed from friction rules.', 'info');
+        }
+
+        function handleSaveSite(event) {
+            event.preventDefault();
+            const editId = document.getElementById('site-edit-id').value;
+            const domain = document.getElementById('site-domain').value.trim();
+            const name = document.getElementById('site-name').value.trim();
+            const category = document.getElementById('site-category').value;
+            const level = document.getElementById('site-level').value;
+
+            if (editId) {
+                const site = state.sites.find(s => s.id == editId);
+                if(site) {
+                    site.domain = domain;
+                    site.name = name;
+                    site.category = category;
+                    site.level = level;
+                }
+                showToast('Friction site updated successfully!', 'success');
+            } else {
+                const newSite = {
+                    id: Date.now(),
+                    domain,
+                    name,
+                    category,
+                    level,
+                    active: true
+                };
+                state.sites.push(newSite);
+                showToast('New friction site added!', 'success');
+            }
+
+            saveToStorage();
+            closeAddSiteModal();
+            renderAll();
+        }
+
+        // --- Friction Wall Challenge Logic ---
+        function launchFrictionWall(domain) {
+            const site = state.sites.find(s => s.domain === domain) || { domain: domain, name: domain, level: 'Medium' };
+            
+            let stepsTotal = 2;
+            if(site.level === 'Easy') stepsTotal = 1;
+            if(site.level === 'Medium') stepsTotal = 2;
+            if(site.level === 'Hard') stepsTotal = 4;
+
+            currentChallengeSession = {
+                site: site,
+                level: site.level,
+                stepsTotal: stepsTotal,
+                currentStepIndex: 0,
+                startTime: Date.now(),
+                mathData: generateMathProblems(),
+                intention: '',
+                timeCommitment: '15'
+            };
+
+            document.getElementById('wall-site-subtitle').innerText = `Attempting to access ${site.domain} (${site.level} Friction)`;
+            document.getElementById('friction-wall-modal').classList.remove('hidden');
+            renderChallengeStep();
+        }
+
+        function generateMathProblems() {
+            const n1 = Math.floor(Math.random() * 12) + 12;
+            const n2 = Math.floor(Math.random() * 8) + 3;
+            const m1 = Math.floor(Math.random() * 9) + 4;
+            const m2 = Math.floor(Math.random() * 9) + 4;
+            return {
+                q1: { question: `${n1} + ${n2} = ?`, answer: n1 + n2 },
+                q2: { question: `${m1} × ${m2} = ?`, answer: m1 * m2 }
+            };
+        }
+
+        function renderChallengeStep() {
+            const step = currentChallengeSession.currentStepIndex;
+            const total = currentChallengeSession.stepsTotal;
+            const percent = Math.round(((step + 1) / total) * 100);
+
+            document.getElementById('step-progress-bar').style.width = percent + '%';
+            document.getElementById('step-progress-percent').innerText = percent + '%';
+
+            const container = document.getElementById('challenge-content-container');
+
+            // Map steps based on level
+            if (currentChallengeSession.level === 'Easy') {
+                // Step 0: Intention Check-in
+                document.getElementById('step-indicator-text').innerText = `Step 1 of 1: Intention Check-in`;
+                container.innerHTML = renderIntentionStepHTML();
+            } else if (currentChallengeSession.level === 'Medium') {
+                if (step === 0) {
+                    document.getElementById('step-indicator-text').innerText = `Step 1 of 2: Intention Check-in`;
+                    container.innerHTML = renderIntentionStepHTML();
+                } else if (step === 1) {
+                    document.getElementById('step-indicator-text').innerText = `Step 2 of 2: Math Gauntlet`;
+                    container.innerHTML = renderMathStepHTML();
+                }
+            } else if (currentChallengeSession.level === 'Hard') {
+                if (step === 0) {
+                    document.getElementById('step-indicator-text').innerText = `Step 1 of 4: Intention Check-in`;
+                    container.innerHTML = renderIntentionStepHTML();
+                } else if (step === 1) {
+                    document.getElementById('step-indicator-text').innerText = `Step 2 of 4: Mindful Breathing Pause`;
+                    container.innerHTML = renderBreathingStepHTML();
+                    startBreathingTimer();
+                } else if (step === 2) {
+                    document.getElementById('step-indicator-text').innerText = `Step 3 of 4: Math Gauntlet`;
+                    container.innerHTML = renderMathStepHTML();
+                } else if (step === 3) {
+                    document.getElementById('step-indicator-text').innerText = `Step 4 of 4: Mindful Typing Test`;
+                    container.innerHTML = renderTypingStepHTML();
+                }
+            }
+            lucide.createIcons();
+        }
+
+        function renderIntentionStepHTML() {
+            return `
+                <div class="space-y-4 animate-fadeIn">
+                    <div class="text-center">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 mx-auto flex items-center justify-center mb-3">
+                            <i data-lucide="target" class="w-6 h-6"></i>
+                        </div>
+                        <h4 class="text-lg font-bold text-white">Why are you visiting ${currentChallengeSession.site.name}?</h4>
+                        <p class="text-xs text-slate-400 mt-1">State your explicit intention to avoid mindless browsing.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Your Intention / Goal</label>
+                        <input type="text" id="input-intention" placeholder="e.g. Look up a specific tutorial video" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500" value="${currentChallengeSession.intention}">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Time Commitment</label>
+                        <select id="input-timelimit" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+                            <option value="5" ${currentChallengeSession.timeCommitment === '5' ? 'selected' : ''}>5 Minutes Only</option>
+                            <option value="15" ${currentChallengeSession.timeCommitment === '15' ? 'selected' : ''}>15 Minutes (Standard)</option>
+                            <option value="30" ${currentChallengeSession.timeCommitment === '30' ? 'selected' : ''}>30 Minutes</option>
+                        </select>
+                    </div>
+                    <button onclick="submitIntentionStep()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-emerald-600/25 transition-all text-sm mt-2">
+                        Continue Challenge
+                    </button>
+                </div>
+            `;
+        }
+
+        function submitIntentionStep() {
+            const val = document.getElementById('input-intention').value.trim();
+            if (!val) {
+                showToast('Please enter your intention before proceeding.', 'error');
+                return;
+            }
+            currentChallengeSession.intention = val;
+            currentChallengeSession.timeCommitment = document.getElementById('input-timelimit').value;
+            advanceStep();
+        }
+
+        function renderBreathingStepHTML() {
+            return `
+                <div class="text-center space-y-6 animate-fadeIn py-4">
+                    <div>
+                        <div class="w-24 h-24 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 text-emerald-400 mx-auto flex items-center justify-center animate-pulse-slow shadow-xl shadow-emerald-500/10">
+                            <span id="breath-countdown" class="text-2xl font-bold">15s</span>
+                        </div>
+                        <h4 id="breath-status-text" class="text-lg font-bold text-white mt-4">Inhale slowly... Exhale completely.</h4>
+                        <p class="text-xs text-slate-400 mt-1">Let the impulse to doomscroll fade away.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        let breathTimer = null;
+        function startBreathingTimer() {
+            let timeLeft = 15;
+            const countEl = document.getElementById('breath-countdown');
+            const statusEl = document.getElementById('breath-status-text');
+
+            if (breathTimer) clearInterval(breathTimer);
+
+            breathTimer = setInterval(() => {
+                timeLeft--;
+                if(countEl) countEl.innerText = timeLeft + 's';
+                if(statusEl) {
+                    if (timeLeft > 8) statusEl.innerText = "Inhale deeply through your nose...";
+                    else statusEl.innerText = "Exhale slowly... Ground yourself.";
+                }
+                if (timeLeft <= 0) {
+                    clearInterval(breathTimer);
+                    advanceStep();
+                }
+            }, 1000);
+        }
+
+        function renderMathStepHTML() {
+            const q1 = currentChallengeSession.mathData.q1;
+            const q2 = currentChallengeSession.mathData.q2;
+            return `
+                <div class="space-y-4 animate-fadeIn">
+                    <div class="text-center">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 mx-auto flex items-center justify-center mb-3">
+                            <i data-lucide="calculator" class="w-6 h-6"></i>
+                        </div>
+                        <h4 class="text-lg font-bold text-white">Math Gauntlet</h4>
+                        <p class="text-xs text-slate-400 mt-1">Solve these equations to verify your cognitive focus.</p>
+                    </div>
+                    <div class="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">${q1.question}</label>
+                            <input type="number" id="math-ans-1" placeholder="Answer" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1">${q2.question}</label>
+                            <input type="number" id="math-ans-2" placeholder="Answer" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                    <button onclick="submitMathStep()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-emerald-600/25 transition-all text-sm">
+                        Verify Answers
+                    </button>
+                </div>
+            `;
+        }
+
+        function submitMathStep() {
+            const a1 = parseInt(document.getElementById('math-ans-1').value);
+            const a2 = parseInt(document.getElementById('math-ans-2').value);
+            const q1 = currentChallengeSession.mathData.q1;
+            const q2 = currentChallengeSession.mathData.q2;
+
+            if (a1 === q1.answer && a2 === q2.answer) {
+                showToast('Math verification passed!', 'success');
+                advanceStep();
+            } else {
+                showToast('Incorrect answers. Please try again.', 'error');
+                currentChallengeSession.mathData = generateMathProblems();
+                renderChallengeStep();
+            }
+        }
+
+        function renderTypingStepHTML() {
+            const targetSentence = "I am visiting with intentional focus and mindful awareness.";
+            return `
+                <div class="space-y-4 animate-fadeIn">
+                    <div class="text-center">
+                        <div class="w-12 h-12 rounded-2xl bg-violet-500/10 text-violet-400 mx-auto flex items-center justify-center mb-3">
+                            <i data-lucide="type" class="w-6 h-6"></i>
+                        </div>
+                        <h4 class="text-lg font-bold text-white">Mindful Grounding Typing</h4>
+                        <p class="text-xs text-slate-400 mt-1">Type the exact affirmation sentence below:</p>
+                    </div>
+                    <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 text-xs text-slate-300 font-mono text-center select-none">
+                        ${targetSentence}
+                    </div>
+                    <div>
+                        <input type="text" id="typing-input" placeholder="Type sentence here..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono">
+                    </div>
+                    <button onclick="submitTypingStep('${targetSentence}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-emerald-600/25 transition-all text-sm">
+                        Complete Challenge
+                    </button>
+                </div>
+            `;
+        }
+
+        function submitTypingStep(target) {
+            const val = document.getElementById('typing-input').value.trim();
+            if (val === target) {
+                completeChallengeSuccess();
+            } else {
+                showToast('Typing mismatch. Please type the exact sentence.', 'error');
+            }
+        }
+
+        function advanceStep() {
+            currentChallengeSession.currentStepIndex++;
+            if (currentChallengeSession.currentStepIndex >= currentChallengeSession.stepsTotal) {
+                completeChallengeSuccess();
+            } else {
+                renderChallengeStep();
+            }
+        }
+
+        function completeChallengeSuccess() {
+            if (breathTimer) clearInterval(breathTimer);
+            const durationSec = Math.round((Date.now() - currentChallengeSession.startTime) / 1000);
+            const durationStr = durationSec < 60 ? `${durationSec}s` : `${Math.floor(durationSec/60)}m ${durationSec%60}s`;
+
+            // Record history & stats
+            state.stats.totalInterventions++;
+            state.stats.challengesCompleted++;
+            state.stats.timeSavedMinutes += 5; // estimated time saved per successful intervention
+
+            state.history.unshift({
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                site: currentChallengeSession.site.domain,
+                challengeType: `${currentChallengeSession.level} (${currentChallengeSession.stepsTotal} steps)`,
+                status: 'Completed',
+                duration: durationStr
+            });
+
+            saveToStorage();
+            renderAll();
+            closeChallengeModal();
+
+            // Trigger confetti
+            confetti({
+                particleCount: 80,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            // Start Focus Pass
+            startFocusPass(parseInt(currentChallengeSession.timeCommitment) || 15);
+            showToast(`Focus Pass Granted for ${currentChallengeSession.site.name}! Enjoy mindful browsing.`, 'success');
+        }
+
+        function abandonChallenge() {
+            if (breathTimer) clearInterval(breathTimer);
+            const durationSec = Math.round((Date.now() - currentChallengeSession.startTime) / 1000);
+            const durationStr = `${durationSec}s`;
+
+            state.stats.totalInterventions++;
+            state.history.unshift({
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                site: currentChallengeSession.site.domain,
+                challengeType: `${currentChallengeSession.level} (${currentChallengeSession.stepsTotal} steps)`,
+                status: 'Abandoned',
+                duration: durationStr
+            });
+
+            saveToStorage();
+            renderAll();
+            closeChallengeModal();
+            showToast('Challenge abandoned. Redirected to positive activity recommendation!', 'info');
+        }
+
+        function closeChallengeModal() {
+            if (breathTimer) clearInterval(breathTimer);
+            document.getElementById('friction-wall-modal').classList.add('hidden');
+        }
+
+        // --- Focus Pass Timer ---
+        function startFocusPass(minutes) {
+            activeFocusPassSecondsLeft = minutes * 60;
+            const badge = document.getElementById('active-pass-badge');
+            const timerText = document.getElementById('pass-timer-text');
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+
+            if (focusPassTimerInterval) clearInterval(focusPassTimerInterval);
+
+            focusPassTimerInterval = setInterval(() => {
+                activeFocusPassSecondsLeft--;
+                const m = Math.floor(activeFocusPassSecondsLeft / 60);
+                const s = activeFocusPassSecondsLeft % 60;
+                timerText.innerText = `Focus Pass (${m}m ${s < 10 ? '0':''}${s}s)`;
+
+                if (activeFocusPassSecondsLeft <= 0) {
+                    clearInterval(focusPassTimerInterval);
+                    badge.classList.remove('flex');
+                    badge.classList.add('hidden');
+                    showToast('Focus Pass expired. Friction Wall re-engaged.', 'info');
+                }
+            }, 1000);
+        }
+
+        // --- Clear History ---
+        function clearHistory() {
+            state.history = [];
+            saveToStorage();
+            renderHistoryTable();
+            showToast('Intervention history cleared.', 'info');
+        }
+
+        // --- Toast Notifications ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgClass = type === 'success' ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200' :
+                            type === 'error' ? 'bg-rose-950/90 border-rose-500/40 text-rose-200' :
+                            'bg-slate-900/90 border-slate-700 text-slate-200';
+
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-2xl border shadow-xl backdrop-blur-md transition-all transform translate-y-2 opacity-0 ${bgClass}`;
+            
+            const iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info';
+            
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-5 h-5 flex-shrink-0"></i>
+                <span class="text-xs font-medium">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
