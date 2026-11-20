@@ -95,6 +95,7 @@
     }
     document.getElementById('saveKey').addEventListener('click', async () => {
       apiKey = apiKeyInput.value.trim();
+      sessionStorage.setItem('frictionflowApiKey', apiKey);
       status.textContent = 'Key held in this tab.';
       await fetchLogs();
     });
