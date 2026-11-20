@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "check": "node --check server.js",
+    "check": "node --check server.js && node --check extension/background.js && node --check extension/blocker.js && node --check extension/popup.js",
+    "test": "node --test",
     "test:smoke": "node scripts/smoke-test.js"
   },
   "engines": {
