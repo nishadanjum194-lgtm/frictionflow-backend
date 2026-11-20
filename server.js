@@ -4,11 +4,12 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || '127.0.0.1';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'frictionflow.db');
 const API_KEY = process.env.API_KEY || '';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
@@ -55,9 +56,16 @@ db.serialize(() => {
 const ALLOWED_ACTIONS = new Set(['bypassed', 'abandoned', 'blocked']);
 
 function requireApiKey(req, res, next) {
-  if (!API_KEY) return next();
-  const provided = req.get('x-api-key') || (typeof req.query.api_key === 'string' ? req.query.api_key : '');
-  if (provided !== API_KEY) {
+  if (!API_KEY) {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ error: 'API_KEY must be configured before using analytics in production.' });
+    }
+    return next();
+  }
+  const provided = req.get('x-api-key') || '';
+  const expectedBuffer = Buffer.from(API_KEY);
+  const providedBuffer = Buffer.from(provided);
+  if (providedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
     return res.status(401).json({ error: 'Unauthorized: missing or invalid API key.' });
   }
   next();
@@ -69,7 +77,9 @@ function validateAnalytics(body) {
 
   const domain = String(body.domain || '').trim().toLowerCase();
   if (!domain || domain.length > 253) errors.push('domain is required and must be <= 253 characters.');
-  if (!/^[a-z0-9.-]+$/.test(domain)) errors.push('domain contains invalid characters.');
+  if (!domain.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) {
+    errors.push('domain must contain valid hostname labels.');
+  }
 
   const action = String(body.action || 'bypassed').trim().toLowerCase();
   if (!ALLOWED_ACTIONS.has(action)) errors.push(`action must be one of: ${[...ALLOWED_ACTIONS].join(', ')}.`);
@@ -91,7 +101,6 @@ app.get('/health', (_req, res) => {
     res.json({
       status: 'healthy',
       service: 'frictionflow-backend',
-      database: DB_PATH,
       analyticsCount: row ? row.count : 0,
       time: new Date().toISOString(),
     });
@@ -114,7 +123,7 @@ app.post('/api/analytics', requireApiKey, (req, res) => {
   );
 });
 
-app.get('/api/analytics', (req, res) => {
+app.get('/api/analytics', requireApiKey, (req, res) => {
   const rawLimit = Number(req.query.limit);
   const limit = Number.isFinite(rawLimit)
     ? Math.min(ANALYTICS_MAX_LIMIT, Math.max(1, Math.trunc(rawLimit)))
@@ -135,7 +144,7 @@ app.get('/api/analytics', (req, res) => {
   );
 });
 
-app.get('/api/stats', (_req, res) => {
+app.get('/api/stats', requireApiKey, (_req, res) => {
   const sql = `
     SELECT
       COUNT(*) AS total,

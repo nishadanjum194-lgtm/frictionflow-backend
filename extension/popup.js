@@ -1,93 +1,96 @@
-const STORAGE_KEYS = {
-  rules: 'frictionRules',
-  bypassed: 'bypassedSites',
-  focusPass: 'focusPassExpiry',
-};
-
+const STORAGE_KEYS = { rules: 'frictionRules' };
+const rulesList = document.getElementById('rulesList');
+const form = document.getElementById('addForm');
+const domainInput = document.getElementById('newDomain');
+const waitInput = document.getElementById('newWait');
+const mathInput = document.getElementById('newMath');
+const status = document.getElementById('status');
 function storageGet(keys) {
-  return new Promise((resolve) => chrome.storage.sync.get(keys, resolve));
+  return new Promise((resolve, reject) => chrome.storage.sync.get(keys, data => {
+    if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+    resolve(data || {});
+  }));
 }
 function storageSet(value) {
-  return new Promise((resolve) => chrome.storage.sync.set(value, resolve));
+  return new Promise((resolve, reject) => chrome.storage.sync.set(value, () => {
+    if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+    resolve();
+  }));
 }
-
+function showStatus(message, isError = false) {
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.error = String(isError);
+}
 async function loadRules() {
   const data = await storageGet([STORAGE_KEYS.rules]);
-  const rules = Array.isArray(data && data[STORAGE_KEYS.rules]) ? data[STORAGE_KEYS.rules] : [];
-  const container = document.getElementById('rulesList');
-  container.textContent = '';
-
-  if (rules.length === 0) {
+  const rules = Array.isArray(data[STORAGE_KEYS.rules]) ? data[STORAGE_KEYS.rules] : [];
+  rulesList.replaceChildren();
+  if (!rules.length) {
     const empty = document.createElement('div');
     empty.className = 'empty';
     empty.textContent = 'No friction sites configured yet.';
-    container.appendChild(empty);
+    rulesList.appendChild(empty);
     return;
   }
-
-  rules.forEach((rule, index) => {
+  rules.forEach(rawRule => {
+    const rule = window.FrictionFlowDomain.normalizeRule(rawRule);
+    if (!rule) return;
     const item = document.createElement('div');
     item.className = 'rule-item';
-
     const main = document.createElement('div');
     main.className = 'rule-main';
-
     const domain = document.createElement('div');
     domain.className = 'rule-domain';
     domain.textContent = rule.domain;
-
     const meta = document.createElement('div');
     meta.className = 'rule-meta';
-    meta.textContent = `${rule.waitTime || 0}s wait${rule.mathRequired ? ' + math' : ''}`;
-
-    main.appendChild(domain);
-    main.appendChild(meta);
-
+    meta.textContent = rule.waitTime + 's wait' + (rule.mathRequired ? ' + math' : '');
+    main.append(domain, meta);
     const removeButton = document.createElement('button');
+    removeButton.type = 'button';
     removeButton.className = 'remove';
     removeButton.textContent = 'Remove';
     removeButton.addEventListener('click', async () => {
-      const fresh = await storageGet([STORAGE_KEYS.rules]);
-      const current = Array.isArray(fresh && fresh[STORAGE_KEYS.rules]) ? fresh[STORAGE_KEYS.rules] : [];
-      current.splice(index, 1);
-      await storageSet({ [STORAGE_KEYS.rules]: current });
-      await loadRules();
+      try {
+        const fresh = await storageGet([STORAGE_KEYS.rules]);
+        const current = Array.isArray(fresh[STORAGE_KEYS.rules]) ? fresh[STORAGE_KEYS.rules] : [];
+        await storageSet({ [STORAGE_KEYS.rules]: current.filter(entry => {
+          const normalized = window.FrictionFlowDomain.normalizeRule(entry);
+          return !normalized || normalized.domain !== rule.domain;
+        }) });
+        await loadRules();
+        showStatus('Removed ' + rule.domain + '.');
+      } catch (error) { showStatus('Could not remove rule: ' + error.message, true); }
     });
-
-    item.appendChild(main);
-    item.appendChild(removeButton);
-    container.appendChild(item);
+    item.append(main, removeButton);
+    rulesList.appendChild(item);
   });
 }
-
-function normalizeDomain(value) {
-  return String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '');
-}
-
-document.getElementById('addForm').addEventListener('submit', async (event) => {
+form.addEventListener('submit', async event => {
   event.preventDefault();
-  const domain = normalizeDomain(document.getElementById('newDomain').value);
-  if (!domain) return;
-
-  const waitTime = Math.max(1, Math.min(600, Number(document.getElementById('newWait').value) || 60));
-  const mathRequired = document.getElementById('newMath').checked;
-
-  const data = await storageGet([STORAGE_KEYS.rules]);
-  const rules = Array.isArray(data && data[STORAGE_KEYS.rules]) ? data[STORAGE_KEYS.rules].slice() : [];
-  const existingIndex = rules.findIndex(rule => String(rule && rule.domain).toLowerCase() === domain);
-
-  const entry = { domain, waitTime, mathRequired };
-  if (existingIndex >= 0) {
-    rules[existingIndex] = entry;
-  } else {
-    rules.push(entry);
+  let domain;
+  try { domain = window.FrictionFlowDomain.normalizeDomain(domainInput.value); }
+  catch (error) { showStatus(error.message, true); domainInput.focus(); return; }
+  const rawWait = Number(waitInput.value);
+  if (!Number.isFinite(rawWait) || !Number.isInteger(rawWait) || rawWait < 1 || rawWait > 600) {
+    showStatus('Wait time must be a whole number from 1 to 600 seconds.', true);
+    waitInput.focus();
+    return;
   }
-
-  await storageSet({ [STORAGE_KEYS.rules]: rules });
-  document.getElementById('addForm').reset();
-  document.getElementById('newWait').value = '60';
-  document.getElementById('newMath').checked = true;
-  await loadRules();
+  try {
+    const data = await storageGet([STORAGE_KEYS.rules]);
+    const current = Array.isArray(data[STORAGE_KEYS.rules]) ? data[STORAGE_KEYS.rules] : [];
+    const rules = current.map(window.FrictionFlowDomain.normalizeRule).filter(Boolean);
+    const entry = { domain, waitTime: rawWait, mathRequired: mathInput.checked };
+    const index = rules.findIndex(rule => rule.domain === domain);
+    if (index >= 0) rules[index] = entry; else rules.push(entry);
+    await storageSet({ [STORAGE_KEYS.rules]: rules });
+    form.reset();
+    waitInput.value = '60';
+    mathInput.checked = true;
+    await loadRules();
+    showStatus('Saved ' + domain + '.');
+  } catch (error) { showStatus('Could not save rule: ' + error.message, true); }
 });
-
-loadRules();
+loadRules().catch(error => showStatus('Could not load rules: ' + error.message, true));

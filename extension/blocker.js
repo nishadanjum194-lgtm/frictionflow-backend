@@ -1,110 +1,107 @@
-// Configure this to your deployed backend (see /backend). For local dev use http://localhost:5001
-const BACKEND_URL = 'https://frictionflow-backend.onrender.com';
-
-const urlParams = new URLSearchParams(window.location.search);
-const targetUrl = urlParams.get('target') || '';
-const domain = (urlParams.get('domain') || '').trim().toLowerCase();
-const requestedWait = Math.max(1, Number(urlParams.get('wait')) || 10);
-let waitTime = requestedWait;
-const mathRequired = urlParams.get('math') === 'true';
+const params = new URLSearchParams(window.location.search);
+const domain = (params.get('domain') || '').trim().toLowerCase();
+const rawTarget = params.get('target') || '';
+const waitValue = Number(params.get('wait'));
+const requestedWait = Number.isFinite(waitValue) ? Math.min(600, Math.max(1, Math.trunc(waitValue))) : 10;
+const mathRequired = params.get('math') === 'true';
+const PASS_MINUTES = 15;
+let targetUrl = '';
+try {
+  const candidate = new URL(rawTarget);
+  if (['http:', 'https:'].includes(candidate.protocol) && window.FrictionFlowDomain.matchesDomain(candidate.hostname, domain)) targetUrl = candidate.href;
+} catch { /* Invalid or tampered redirect target: do not navigate. */ }
 
 const targetDomainEl = document.getElementById('targetDomain');
 if (targetDomainEl) targetDomainEl.textContent = domain || 'this site';
-
 const timerDisplay = document.getElementById('timerDisplay');
 const waitSection = document.getElementById('waitSection');
 const mathSection = document.getElementById('mathSection');
-
-function nowMs() { return Date.now(); }
+const answerInput = document.getElementById('mathAnswer');
 
 function storageGet(keys) {
-  return new Promise((resolve) => chrome.storage.sync.get(keys, resolve));
+  return new Promise((resolve, reject) => chrome.storage.sync.get(keys, data => {
+    if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+    resolve(data || {});
+  }));
 }
 function storageSet(value) {
-  return new Promise((resolve) => chrome.storage.sync.set(value, resolve));
+  return new Promise((resolve, reject) => chrome.storage.sync.set(value, () => {
+    if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+    resolve();
+  }));
 }
-
 let correctAnswer = 0;
+let granting = false;
+let countdownTimer = null;
 function setupMath() {
   const a = Math.floor(Math.random() * 50) + 10;
   const b = Math.floor(Math.random() * 50) + 10;
   correctAnswer = a + b;
-  const q = document.getElementById('mathQuestion');
-  if (q) q.textContent = `${a} + ${b} = ?`;
+  const question = document.getElementById('mathQuestion');
+  if (question) question.textContent = a + ' + ' + b + ' = ?';
+  if (answerInput) { answerInput.value = ''; answerInput.focus(); }
 }
-
 async function grantAccess() {
-  const waitDuration = requestedWait;
-  const startedAt = nowMs() - waitDuration * 1000;
-  const apiKeyResult = await storageGet(['backendApiKey']);
-  const apiKey = apiKeyResult && apiKeyResult.backendApiKey ? String(apiKeyResult.backendApiKey) : '';
-
-  const started = nowMs();
-  const analyticsPayload = {
-    domain,
-    action: 'bypassed',
-    duration: waitDuration,
-    occurred_at: startedAt,
-    user_id: 'extension',
-  };
-
+  if (granting || !targetUrl) return;
+  granting = true;
+  if (countdownTimer) clearInterval(countdownTimer);
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['X-API-Key'] = apiKey;
-    await fetch(`${BACKEND_URL}/api/analytics`, {
+    const data = await storageGet(['bypassedSites', 'focusPassExpiry', 'analyticsEnabled', 'backendApiKey', 'backendUrl']);
+    const bypassed = data.bypassedSites && typeof data.bypassedSites === 'object' ? data.bypassedSites : {};
+    const passes = data.focusPassExpiry && typeof data.focusPassExpiry === 'object' ? data.focusPassExpiry : {};
+    const expiry = Date.now() + PASS_MINUTES * 60 * 1000;
+    bypassed[domain] = Date.now();
+    passes[domain] = expiry;
+    await storageSet({ bypassedSites: bypassed, focusPassExpiry: passes });
+    void sendAnalytics(data);
+    window.location.replace(targetUrl);
+  } catch (error) {
+    granting = false;
+    console.error('Could not save the focus pass:', error);
+    alert('Could not save your focus pass. Please try again.');
+  }
+}
+async function sendAnalytics(previousData) {
+  if (previousData.analyticsEnabled !== true || !previousData.backendApiKey) return;
+  const backendUrl = String(previousData.backendUrl || 'https://frictionflow-backend.onrender.com').replace(/\/$/, '');
+  let endpoint;
+  try {
+    endpoint = new URL(backendUrl);
+    const isLocalDevelopment = ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname);
+    if (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && isLocalDevelopment)) return;
+  } catch { return; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    await fetch(endpoint.href + '/api/analytics', {
       method: 'POST',
-      headers,
-      body: JSON.stringify(analyticsPayload),
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': String(previousData.backendApiKey) },
+      body: JSON.stringify({ domain, action: 'bypassed', duration: requestedWait, occurred_at: Date.now(), user_id: 'extension' }),
+      signal: controller.signal
     });
-  } catch (err) {
-    console.warn('Analytics log failed:', err && err.message ? err.message : err);
-  }
-
-  const passMinutes = Math.max(1, Math.round(requestedWait / 6) || 15);
-  // Use a friendly default focus window of 15 minutes regardless of wait time.
-  const focusMinutes = 15;
-  const expiry = nowMs() + focusMinutes * 60 * 1000;
-
-  const data = await storageGet(['bypassedSites', 'focusPassExpiry']);
-  const bypassed = (data && data.bypassedSites && typeof data.bypassedSites === 'object') ? data.bypassedSites : {};
-  const passes = (data && data.focusPassExpiry && typeof data.focusPassExpiry === 'object') ? data.focusPassExpiry : {};
-  bypassed[domain] = nowMs();
-  passes[domain] = expiry;
-  await storageSet({ bypassedSites: bypassed, focusPassExpiry: passes });
-
-  if (targetUrl) window.location.href = targetUrl;
+  } catch (error) { console.warn('Optional analytics request failed:', error.message); }
+  finally { clearTimeout(timeout); }
 }
-
+function submitAnswer() {
+  if (!answerInput) return;
+  const value = answerInput.value.trim();
+  if (!/^\d+$/.test(value) || Number(value) !== correctAnswer) { alert('Incorrect. Try again.'); setupMath(); return; }
+  void grantAccess();
+}
 const submitMath = document.getElementById('submitMath');
-if (submitMath) {
-  submitMath.addEventListener('click', () => {
-    const val = parseInt(document.getElementById('mathAnswer').value, 10);
-    if (val === correctAnswer) {
-      grantAccess();
-    } else {
-      alert('Incorrect. Try again.');
-      setupMath();
-    }
-  });
-}
-
+if (submitMath) submitMath.addEventListener('click', submitAnswer);
+if (answerInput) answerInput.addEventListener('keydown', event => { if (event.key === 'Enter') submitAnswer(); });
 const emergencyExit = document.getElementById('emergencyExit');
-if (emergencyExit) {
-  emergencyExit.addEventListener('click', () => window.close());
+if (emergencyExit) emergencyExit.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'CLOSE_BLOCKER_TAB' }));
+const deadline = Date.now() + requestedWait * 1000;
+function updateCountdown() {
+  const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  if (timerDisplay) timerDisplay.textContent = remaining + 's';
+  if (remaining > 0) return;
+  if (countdownTimer) clearInterval(countdownTimer);
+  if (waitSection) waitSection.classList.add('hidden');
+  if (mathRequired) { setupMath(); if (mathSection) mathSection.classList.remove('hidden'); }
+  else void grantAccess();
 }
-
-let interval = setInterval(() => {
-  waitTime -= 1;
-  if (timerDisplay) timerDisplay.textContent = `${Math.max(0, waitTime)}s`;
-  if (waitTime <= 0) {
-    clearInterval(interval);
-    if (waitSection) waitSection.classList.add('hidden');
-    if (mathRequired) {
-      setupMath();
-      if (mathSection) mathSection.classList.remove('hidden');
-    } else {
-      grantAccess();
-    }
-  }
-}, 1000);
-if (timerDisplay) timerDisplay.textContent = `${waitTime}s`;
+updateCountdown();
+countdownTimer = setInterval(updateCountdown, 250);

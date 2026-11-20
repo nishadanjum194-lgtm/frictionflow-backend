@@ -1,69 +1,60 @@
 # FrictionFlow
 
-FrictionFlow is a mindful-browsing / digital-wellbeing system with three parts:
+FrictionFlow is a mindful-browsing tool designed to put a deliberate pause between an impulse and opening a distracting website.
 
-1. **Browser extension** (`extension/`) - blocks distracting sites by redirecting to a friction wall (countdown, math, breathing, mindful typing) and granting a time-limited focus pass afterwards.
-2. **Backend API + dashboard** (`server.js`, `public/`) - Express + SQLite service that logs bypass events and exposes a small admin dashboard.
-3. **Prototype web UI** (`web/prototype.html`) - standalone concept dashboard using `localStorage` for offline experimentation.
+## Browser extension
 
-## Quick start (backend)
+The canonical Manifest V3 extension is in extension/.
 
-```bash
-cp .env.example .env
-npm install
-npm start
-```
+### What it does
 
-Backend runs on `http://127.0.0.1:5001` by default. Useful endpoints:
+- Starts with rules for YouTube, Instagram and Twitter/X.
+- Lets you add a website domain, set a 1–600 second wait and optionally require a maths challenge.
+- Intercepts top-level HTTP/HTTPS navigation to a matching domain or one of its subdomains.
+- Shows a pause screen and, when enabled, a randomly generated addition question.
+- Grants a 15-minute focus pass for that domain after the pause/challenge.
+- Stores rules and temporary passes in browser sync storage.
+- Lets you abandon the attempt and close the blocked tab.
 
-- `GET /health`
-- `POST /api/analytics` (body: `{ domain, action, duration, user_id?, occurred_at? }`)
-- `GET /api/analytics?limit=50&offset=0`
-- `GET /api/stats`
+Domain matching is exact or a subdomain boundary match. For example, a rule for reddit.com matches www.reddit.com and old.reddit.com, but not reddit.com.evil.test.
 
-Set `API_KEY` in `.env` to require an `X-API-Key` header on writes. For local development it can stay empty.
+### Privacy
 
-## Environment variables
+The extension does not send browsing activity to the backend by default. Analytics is sent only if both analyticsEnabled: true and a backendApiKey are explicitly set in extension sync storage. The analytics request never blocks the page redirect.
 
-See `.env.example`. Values:
+The extension needs broad host access because user-defined rules can target arbitrary websites. It observes top-level navigation URLs only; it does not read page contents, form entries, passwords or keystrokes.
 
-- `PORT` - HTTP port (default `5001`)
-- `HOST` - bind host (default `0.0.0.0`)
-- `DB_PATH` - SQLite file location (default next to `server.js`)
-- `CORS_ORIGIN` - comma-separated list or `*` for development
-- `API_KEY` - optional write protection
+### Install / update
 
-## Extension install (development)
+**Chrome, Brave and Edge**
+1. Open chrome://extensions and enable Developer mode.
+2. Choose Load unpacked and select extension/.
+3. After updating, press Reload on the extension card.
 
-1. Open `chrome://extensions` or `about:debugging`.
-2. Enable developer mode and "Load unpacked" / temporary addon.
-3. Select the `extension/` directory.
-4. To attach to a local backend, store your key with `chrome.storage.sync.set({ backendApiKey: '...' })` (optional).
+**Firefox**
+1. Run npm run build:firefox from this directory.
+2. Open about:debugging#/runtime/this-firefox.
+3. Choose Load Temporary Add-on and select dist/firefox-extension/manifest.json.
+4. Rebuild and reload the temporary add-on after changes.
 
-The extension uses `chrome.storage.sync`, auto-seeds default rules on install, and migrates older local-storage settings on upgrade.
+The Chrome package uses a Manifest V3 service worker. The Firefox build uses its supported non-persistent background-script manifest; both share the same source files.
 
-## Docker
+### Backend
 
-```bash
-docker build -t frictionflow-backend -f Dockerfile.txt .
-docker run -p 5001:5001 -v frictionflow-data:/app/data \
-  -e DB_PATH=/app/data/frictionflow.db frictionflow-backend
-```
+The optional Express + SQLite service is in this directory. It supports analytics and a dashboard; it is not required for the extension's core blocking behavior.
+
+Run:
+
+    npm install
+    npm test
+    npm start
+
+Set API_KEY before exposing the backend. Do not expose an unauthenticated analytics database to the public internet. Use HOST=127.0.0.1 for local-only development unless remote access is intentional.
 
 ## Project layout
 
-```
-backend-equivalent root:
-  server.js                Express + SQLite API
-  public/                 Admin dashboard
-  extension/              Browser extension (MV3)
-  web/                    Standalone prototype UI
-  scripts/                Helper scripts
-```
-
-## Security notes
-
-- CORS is open only when `CORS_ORIGIN=*`; set a real origin in production.
-- Writes can be protected with `API_KEY`.
-- Helmet is enabled by default.
-- The SQLite database and `.env` are intentionally not committed.
+- server.js: Express API
+- public/: backend dashboard
+- extension/: canonical browser extension
+- web/: standalone concept prototype
+- scripts/: smoke and unit tests
