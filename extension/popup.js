@@ -69,7 +69,7 @@ async function loadRules() {
     domain.textContent = rule.domain;
     const meta = document.createElement('div');
     meta.className = 'rule-meta';
-    meta.textContent = \`\${rule.waitTime || 0}s wait\${rule.mathRequired ? ' + math' : ''}\`;
+    meta.textContent = `${rule.waitTime || 0}s wait${rule.mathRequired ? ' + math' : ''}`;
     main.append(domain, meta);
     const removeButton = document.createElement('button');
     removeButton.className = 'remove';
