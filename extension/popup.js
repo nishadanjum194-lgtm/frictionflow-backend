@@ -20,13 +20,38 @@ function storageSet(value) {
     });
   });
 }
+function localGet(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(keys, (value) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve(value || {});
+    });
+  });
+}
+function localSet(value) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(value, () => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve();
+    });
+  });
+}
+
+async function loadApiKey() {
+  const data = await localGet(['backendApiKey']);
+  document.getElementById('apiKey').value = data.backendApiKey || '';
+}
+document.getElementById('saveApiKey').addEventListener('click', async () => {
+  const key = document.getElementById('apiKey').value.trim();
+  await localSet({ backendApiKey: key });
+  document.getElementById('keyStatus').textContent = key ? 'API key saved on this device.' : 'API key cleared.';
+});
 
 async function loadRules() {
   const data = await storageGet([STORAGE_KEYS.rules]);
   const rules = Array.isArray(data[STORAGE_KEYS.rules]) ? data[STORAGE_KEYS.rules] : [];
   const container = document.getElementById('rulesList');
   container.textContent = '';
-
   if (rules.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty';
@@ -34,7 +59,6 @@ async function loadRules() {
     container.appendChild(empty);
     return;
   }
-
   rules.forEach((rule, index) => {
     const item = document.createElement('div');
     item.className = 'rule-item';
@@ -47,7 +71,6 @@ async function loadRules() {
     meta.className = 'rule-meta';
     meta.textContent = \`\${rule.waitTime || 0}s wait\${rule.mathRequired ? ' + math' : ''}\`;
     main.append(domain, meta);
-
     const removeButton = document.createElement('button');
     removeButton.className = 'remove';
     removeButton.textContent = 'Remove';
@@ -62,7 +85,6 @@ async function loadRules() {
     container.appendChild(item);
   });
 }
-
 function normalizeDomain(value) {
   let input = String(value || '').trim().toLowerCase();
   if (!input) return '';
@@ -74,9 +96,7 @@ function normalizeDomain(value) {
   try {
     const parsed = new URL('https://' + input);
     return parsed.hostname === input && parsed.pathname === '/' ? parsed.hostname : '';
-  } catch (_error) {
-    return '';
-  }
+  } catch (_error) { return ''; }
 }
 
 document.getElementById('addForm').addEventListener('submit', async (event) => {
@@ -84,11 +104,10 @@ document.getElementById('addForm').addEventListener('submit', async (event) => {
   const domain = normalizeDomain(document.getElementById('newDomain').value);
   const error = document.getElementById('formError');
   if (!domain) {
-    if (error) error.textContent = 'Enter a valid domain, such as example.com.';
+    error.textContent = 'Enter a valid domain, such as example.com.';
     return;
   }
-  if (error) error.textContent = '';
-
+  error.textContent = '';
   const waitTime = Math.max(1, Math.min(600, Number(document.getElementById('newWait').value) || 60));
   const mathRequired = document.getElementById('newMath').checked;
   const data = await storageGet([STORAGE_KEYS.rules]);
@@ -97,7 +116,6 @@ document.getElementById('addForm').addEventListener('submit', async (event) => {
   const entry = { domain, waitTime, mathRequired };
   if (existingIndex >= 0) rules[existingIndex] = entry;
   else rules.push(entry);
-
   await storageSet({ [STORAGE_KEYS.rules]: rules });
   document.getElementById('addForm').reset();
   document.getElementById('newWait').value = '60';
@@ -105,7 +123,6 @@ document.getElementById('addForm').addEventListener('submit', async (event) => {
   await loadRules();
 });
 
-loadRules().catch((error) => {
-  const container = document.getElementById('rulesList');
-  container.textContent = 'Could not load rules: ' + error.message;
+Promise.all([loadApiKey(), loadRules()]).catch((error) => {
+  document.getElementById('rulesList').textContent = 'Could not load settings: ' + error.message;
 });
