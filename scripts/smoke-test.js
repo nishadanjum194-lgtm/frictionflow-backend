@@ -5,7 +5,7 @@ const os = require('os');
 
 const PORT = 5099;
 const API_KEY = 'frictionflow-smoke-test-key';
-const DB_PATH = path.join(os.tmpdir(), \`frictionflow-smoke-\${process.pid}.db\`);
+const DB_PATH = path.join(os.tmpdir(), `frictionflow-smoke-${process.pid}.db`);
 if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
 
 const server = spawn(process.execPath, ['server.js'], {
@@ -27,7 +27,7 @@ function request(method, route, body, authenticated = true) {
   if (authenticated) headers['X-API-Key'] = API_KEY;
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
-  return fetch(\`http://127.0.0.1:\${PORT}\${route}\`, options).then(async (response) => ({
+  return fetch(`http://127.0.0.1:${PORT}${route}`, options).then(async (response) => ({
     status: response.status,
     json: await response.json().catch(() => null),
   }));
