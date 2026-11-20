@@ -78,7 +78,7 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
     if ((Number(passes[domain]) || 0) > now) return;
 
     const blockerUrl = chrome.runtime.getURL(
-      \`blocker.html?target=\${encodeURIComponent(details.url)}&domain=\${encodeURIComponent(domain)}&wait=\${encodeURIComponent(matchedRule.waitTime || 10)}&math=\${encodeURIComponent(Boolean(matchedRule.mathRequired))}\`
+      `blocker.html?target=${encodeURIComponent(details.url)}&domain=${encodeURIComponent(domain)}&wait=${encodeURIComponent(matchedRule.waitTime || 10)}&math=${encodeURIComponent(Boolean(matchedRule.mathRequired))}`
     );
     chrome.tabs.update(details.tabId, { url: blockerUrl });
   });
