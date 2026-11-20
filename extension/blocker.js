@@ -32,7 +32,7 @@ function setupMath() {
   const b = Math.floor(Math.random() * 50) + 10;
   correctAnswer = a + b;
   const question = document.getElementById('mathQuestion');
-  if (question) question.textContent = \`\${a} + \${b} = ?\`;
+  if (question) question.textContent = `${a} + ${b} = ?`;
 }
 async function grantAccess() {
   if (!targetUrl || !domain) return;
@@ -48,7 +48,7 @@ async function grantAccess() {
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (apiKey) headers['X-API-Key'] = apiKey;
-    await fetch(\`\${BACKEND_URL}/api/analytics\`, {
+    await fetch(`${BACKEND_URL}/api/analytics`, {
       method: 'POST',
       headers,
       body: JSON.stringify(analyticsPayload),
@@ -76,7 +76,7 @@ const emergencyExit = document.getElementById('emergencyExit');
 if (emergencyExit) emergencyExit.addEventListener('click', () => window.close());
 const interval = setInterval(() => {
   waitTime -= 1;
-  if (timerDisplay) timerDisplay.textContent = \`\${Math.max(0, waitTime)}s\`;
+  if (timerDisplay) timerDisplay.textContent = `${Math.max(0, waitTime)}s`;
   if (waitTime <= 0) {
     clearInterval(interval);
     if (waitSection) waitSection.classList.add('hidden');
@@ -86,4 +86,4 @@ const interval = setInterval(() => {
     } else grantAccess();
   }
 }, 1000);
-if (timerDisplay) timerDisplay.textContent = \`\${waitTime}s\`;
+if (timerDisplay) timerDisplay.textContent = `${waitTime}s`;
