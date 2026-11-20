@@ -51,7 +51,7 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 });
 
 db.serialize(() => {
-  db.run(\`CREATE TABLE IF NOT EXISTS analytics (
+  db.run(`CREATE TABLE IF NOT EXISTS analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     domain TEXT NOT NULL,
     action TEXT NOT NULL,
@@ -59,10 +59,10 @@ db.serialize(() => {
     user_id TEXT,
     occurred_at INTEGER,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-  )\`);
+  )`);
   for (const stmt of [
-    \`ALTER TABLE analytics ADD COLUMN user_id TEXT\`,
-    \`ALTER TABLE analytics ADD COLUMN occurred_at INTEGER\`,
+    `ALTER TABLE analytics ADD COLUMN user_id TEXT`,
+    `ALTER TABLE analytics ADD COLUMN occurred_at INTEGER`,
   ]) {
     db.run(stmt, (err) => {
       if (err && !/duplicate column name/i.test(err.message)) {
@@ -70,8 +70,8 @@ db.serialize(() => {
       }
     });
   }
-  db.run(\`CREATE INDEX IF NOT EXISTS idx_analytics_timestamp ON analytics(timestamp DESC)\`);
-  db.run(\`CREATE INDEX IF NOT EXISTS idx_analytics_domain ON analytics(domain)\`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_timestamp ON analytics(timestamp DESC)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_analytics_domain ON analytics(domain)`);
 });
 
 const ALLOWED_ACTIONS = new Set(['bypassed', 'abandoned', 'blocked']);
@@ -139,8 +139,8 @@ app.post('/api/analytics', requireApiKey, (req, res) => {
 
   const { domain, action, duration, userId, occurredAt } = result.value;
   db.run(
-    \`INSERT INTO analytics (domain, action, duration, user_id, occurred_at)
-     VALUES (?, ?, ?, ?, ?)\`,
+    `INSERT INTO analytics (domain, action, duration, user_id, occurred_at)
+     VALUES (?, ?, ?, ?, ?)`,
     [domain, action, duration, userId, occurredAt],
     function (err) {
       if (err) {
@@ -161,10 +161,10 @@ app.get('/api/analytics', requireApiKey, (req, res) => {
   const offset = Number.isFinite(rawOffset) ? Math.min(1000000, Math.max(0, Math.trunc(rawOffset))) : 0;
 
   db.all(
-    \`SELECT id, domain, action, duration, user_id, occurred_at, timestamp
+    `SELECT id, domain, action, duration, user_id, occurred_at, timestamp
      FROM analytics
      ORDER BY timestamp DESC, id DESC
-     LIMIT ? OFFSET ?\`,
+     LIMIT ? OFFSET ?`,
     [limit, offset],
     (err, rows) => {
       if (err) {
@@ -177,14 +177,14 @@ app.get('/api/analytics', requireApiKey, (req, res) => {
 });
 
 app.get('/api/stats', requireApiKey, (_req, res) => {
-  const sql = \`
+  const sql = `
     SELECT
       COUNT(*) AS total,
       COALESCE(SUM(CASE WHEN action = 'bypassed' THEN 1 ELSE 0 END), 0) AS bypassed,
       COALESCE(SUM(CASE WHEN action = 'abandoned' THEN 1 ELSE 0 END), 0) AS abandoned,
       COALESCE(ROUND(AVG(duration), 2), 0) AS avgDurationSeconds
     FROM analytics
-  \`;
+  `;
   db.get(sql, [], (err, row) => {
     if (err) {
       console.error('Analytics stats query failed:', err.message);
@@ -201,11 +201,11 @@ app.use((_req, res) => {
 });
 
 const server = app.listen(PORT, HOST, () => {
-  console.log(\`Backend running on http://\${HOST}:\${PORT}\`);
+  console.log(`Backend running on http://${HOST}:${PORT}`);
 });
 
 function shutdown(signal) {
-  console.log(\`Received \${signal}; shutting down gracefully.\`);
+  console.log(`Received ${signal}; shutting down gracefully.`);
   server.close(() => {
     db.close(() => process.exit(0));
   });
